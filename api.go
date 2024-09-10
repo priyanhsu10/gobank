@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-
-	"github.com/gorilla/mux"
 )
 
 type APIServer struct {
@@ -42,24 +40,19 @@ func NewAPIServer(listnerAddres string, storage Storage) *APIServer {
 	}
 }
 func (s *APIServer) run() {
-	router := mux.Router{}
-	router.HandleFunc("/account", HandleFunc(s.hanldleAccount))
-	router.HandleFunc("/account/{id}", HandleFunc(s.hanldleAccount))
-	fmt.Println("JSON api running on th port :", s.listnerAddr)
-	http.ListenAndServe(s.listnerAddr, &router)
-}
-func (s *APIServer) hanldleAccount(w http.ResponseWriter, r *http.Request) error {
+	app := http.NewServeMux()
+	app.HandleFunc("DELETE /account/{id}", HandleFunc(s.handleDeleteAccount))
+	app.HandleFunc("GET /account", HandleFunc(s.handleGetAccount))
+	app.HandleFunc("GET /account/{id}", HandleFunc(s.getAccountById))
+	app.HandleFunc("POST /account", HandleFunc(s.handleCreateAccount))
+	app.HandleFunc("PUT /account/{id}", HandleFunc(s.handleUpdateAccount))
 
-	if r.Method == "GET" {
-		return s.handleGetAccount(w, r)
+	fmt.Println("JSON api running on th port :", s.listnerAddr)
+	//http.ListenAndServe(s.listnerAddr, &router)
+
+	if err := http.ListenAndServe("localhost:3000", app); err != nil {
+		fmt.Println(err.Error())
 	}
-	if r.Method == "POST" {
-		return s.handleCreateAccount(w, r)
-	}
-	if r.Method == "DELETE" {
-		return s.handleDeleteAccount(w, r)
-	}
-	return fmt.Errorf("Method not suppored %s", r.Method)
 }
 
 func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) error {
@@ -72,6 +65,40 @@ func (s *APIServer) handleGetAccount(w http.ResponseWriter, r *http.Request) err
 	}
 	return WriteJson(w, http.StatusOK, result)
 
+}
+func (s *APIServer) handleUpdateAccount(w http.ResponseWriter, r *http.Request) error {
+
+	idstr := r.PathValue("id")
+	id, err := strconv.Atoi(idstr)
+	if err != nil {
+		return err
+	}
+	accRequest := new(AccountUdpateRequest)
+	if err := json.NewDecoder(r.Body).Decode(accRequest); err != nil {
+		return err
+	}
+	account := Account{
+		ID:        id,
+		FirstName: accRequest.FirstName,
+		LastName:  accRequest.LastName,
+		Number:    accRequest.Number,
+		Balance:   accRequest.Balance,
+	}
+
+	return s.store.UpdateAccount(&account)
+}
+func (s *APIServer) getAccountById(w http.ResponseWriter, r *http.Request) error {
+
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		return err
+	}
+	account, err := s.store.GetAccountById(id)
+
+	if err != nil {
+		return err
+	}
+	return WriteJson(w, http.StatusOK, account)
 }
 func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) error {
 	accRequest := new(AccountCreateReuqust)
@@ -87,8 +114,8 @@ func (s *APIServer) handleCreateAccount(w http.ResponseWriter, r *http.Request) 
 	return WriteJson(w, http.StatusOK, account)
 }
 func (s *APIServer) handleDeleteAccount(w http.ResponseWriter, r *http.Request) error {
-	vars := mux.Vars(r)
-	idstr := vars["id"]
+
+	idstr := r.PathValue("id")
 	id, err := strconv.Atoi(idstr)
 	if err != nil {
 		return fmt.Errorf("invalid id given %s", idstr)

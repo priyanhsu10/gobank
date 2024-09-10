@@ -74,11 +74,42 @@ func (s *PostgressStore) DeleteAccont(id int) error {
 	return err
 }
 func (s *PostgressStore) UpdateAccount(account *Account) error {
+	query := `update account set first_name=$1,last_name=$2,number=$3,balance=$4 where ID=$5`
+	_, err := s.db.Query(query, account.FirstName, account.LastName, account.Number, account.Balance, account.ID)
+
+	if err != nil {
+		return err
+	}
 	return nil
 }
 func (s *PostgressStore) GetAccountById(id int) (*Account, error) {
 
-	return nil, nil
+	query := `select * from  account where id=$1`
+	r, err := s.db.Query(query, id)
+	if err != nil {
+		return nil, err
+	}
+	r.Next()
+	account, err := bind(r)
+	if err != nil {
+		return nil, fmt.Errorf("account not found")
+	}
+
+	return account, nil
+}
+func bind(result *sql.Rows) (*Account, error) {
+	account := &Account{}
+	err := result.Scan(&account.ID,
+		&account.FirstName,
+		&account.LastName,
+		&account.Number,
+		&account.Balance,
+		&account.CreatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 func (s *PostgressStore) GetAllAccounts() ([]*Account, error) {
 
@@ -92,14 +123,7 @@ func (s *PostgressStore) GetAllAccounts() ([]*Account, error) {
 	accounts := []*Account{}
 	for result.Next() {
 
-		account := &Account{}
-		err := result.Scan(&account.ID,
-			&account.FirstName,
-			&account.LastName,
-			&account.Number,
-			&account.Balance,
-			&account.CreatedAt)
-
+		account, err := bind(result)
 		if err != nil {
 			return nil, err
 		}

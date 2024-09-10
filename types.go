@@ -9,7 +9,12 @@ type AccountCreateReuqust struct {
 	FirstName string `json:"firstname"`
 	LastName  string `json:"lastname"`
 }
-
+type AccountUdpateRequest struct {
+	FirstName string `json:"firstname"`
+	LastName  string `json:"lastname"`
+	Number    int64  `json:"number"`
+	Balance   int64  `json:"balance"`
+}
 type Account struct {
 	ID        int       `json:"id"`
 	FirstName string    `json:"fistname"`
